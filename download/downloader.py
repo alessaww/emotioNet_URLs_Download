@@ -54,10 +54,20 @@ class Downloader:
         """
         pass
 
-    """
-    Creating a client session outside of coroutine
-    client_session: <aiohttp.client.ClientSession object at 0x7fa28137fdd8>
-    """
+    def rename(self, url):
+        exts = ['.jpg', '.png', 'jif', '.bmp', 'jpeg']
+        name = url.strip('\n').split('/')[-1]
+        fname, ext = os.path.splitext(name)
+        if ext.lower() in exts:
+            ext = ext.lower()
+        elif ext[:4].lower() in exts:
+            ext = ext[:4].lower()
+        elif ext[:5].lower() in exts:
+            ext = ext[:5].lower()
+        else:
+            ext = '.jpg'
+        return '{}{}'.format(fname, ext)
+
     async def stream_download(self, url, path):
         """
         爬取媒体文件时，使用此函数
@@ -106,7 +116,8 @@ class Downloader:
         while True:
             link = await self.queue.get()
             try:
-                path = os.path.join(self.download_to, link.split('/')[-1])
+                # path = os.path.join(self.download_to, link.split('/')[-1])
+                path = os.path.join(self.download_to, self.rename(link))
 
                 if self._is_streaming:
                     await self.stream_download(link, path)
