@@ -7,12 +7,13 @@ import os
 
 
 class Downloader:
-    def __init__(self, links, download_to, log_file, max_tries=4, max_tasks=10,
-                  max_sem=100, conn_timeout=10, headers=None, loop=None):
+    def __init__(self, links, download_to, log_file, max_tries=6, max_tasks=20,
+                  max_sem=1000, conn_timeout=5, headers=None, loop=None):
         self.loop = loop or asyncio.get_event_loop()
         self.links = links
         self.download_to = download_to
-        self.log_file = log_file
+        self.log_success = log_file + '_success.log'
+        self.log_failed = log_file + '_failed.log'
 
         self.max_tries = max_tries
         self.max_tasks = max_tasks
@@ -47,15 +48,26 @@ class Downloader:
                 try:
                     async with self.session.get(url) as response:
                         if response.status == 200:
-                            async with aiofiles.open(save_path, 'wb') as f:
-                                await f.write(await response.read())
+                            try:
+                                async with aiofiles.open(save_path, 'wb') as f:
+                                    await f.write(await response.read())
+                                    print('save successed {} to {}'.format(url, save_path))
+
+                                    # 将下载成功的url保存到下载成功日志中
+                                    async with aiofiles.open(self.log_success, 'a') as log:
+                                        await log.write(url + '\n')
+                            except Exception as e:
+                                print('save error {}'.format(e))
+                                async with aiofiles.open(self.log_failed, 'a') as log:
+                                    await log.write(url + '\n')
                     break
                 except aiohttp.ClientError as client_error:
                     pass
                 tries += 1
             else:
                 print("try {} times but still unconnected".format(self.max_tries))
-                async with aiofiles.open(self.log_file, 'a') as log:
+                # 将连接超时的url保存到下载失败日志中
+                async with aiofiles.open(self.log_failed, 'a') as log:
                     await log.write(url+'\n')
 
     async def worker(self):
@@ -66,7 +78,6 @@ class Downloader:
             try:
                 save_path = os.path.join(self.download_to, save_name)
                 await self.download(url, save_path)
-                print('save successed {} to {}'.format(url, save_path))
                 print('remained {}'.format(self.queue.qsize()))
             except Exception as e:
                 print('save error. except: {}, url: {}'.format(e, url))
