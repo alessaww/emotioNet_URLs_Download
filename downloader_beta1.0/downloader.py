@@ -75,8 +75,11 @@ class Downloader:
             url = await self.queue.get()
             print("processing {}".format(url))
             save_name = self.rename(url)
+            save_path = os.path.join(self.download_to, save_name)
+            if os.path.exists(save_path):
+            	self.queue.task_done()
+            	continue
             try:
-                save_path = os.path.join(self.download_to, save_name)
                 await self.download(url, save_path)
                 print('remained {}'.format(self.queue.qsize()))
             except Exception as e:
